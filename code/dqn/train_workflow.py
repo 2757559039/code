@@ -32,29 +32,31 @@ op_env_info=CustomPrinter(output_env_info)
 @attached
 def workflow(envs, agents, logger=None, monitor=None):
     env, agent = envs[0], agents[0]
-    epoch_num = 100000
-    episode_num_every_epoch = 1
+    epoch_num = 10000
+    episode_num_every_epoch = 10000
     g_data_truncat = 256
     last_save_model_time = 0
-
     # User-defined game start configuration
     # 用户自定义的游戏启动配置
+# 起点为2，终点为1，固定6个宝箱[4, 5, 6, 7, 8, 9]
+
     usr_conf = {
-        "diy": {
-            "start": 2,
-            "end": 1,
-            # "treasure_id": [4, 5, 6, 7, 8, 9],
-            "treasure_random": 1,
-            "talent_type": 1,
-            "treasure_num": 8,
-            "max_step": 2000,
-        }
+    "diy": {
+        "start": 2,
+        "end": 1,
+        "treasure_id": [3,4, 5, 6, 7, 8, 9,10,11,12,13,14,15],
+        "treasure_random": 0,
+        "talent_type": 1,
+        "max_step": 2000,
+    }
     }
 
     # usr_conf_check is a tool to check whether the game configuration is correct
     # It is recommended to perform a check before calling reset.env
     # usr_conf_check会检查游戏配置是否正确，建议调用reset.env前先检查一下
+
     valid = usr_conf_check(usr_conf, logger)
+
     if not valid:
         logger.error(f"usr_conf_check return False, please check")
         return
@@ -135,16 +137,13 @@ def run_episodes(n_episode, env, agent, g_data_truncat, usr_conf, logger):
             frame_no, _obs, score, terminated, truncated, _env_info = env.step(act)
             
             op_env_info.print(f"下面是原始的当前智能体的_env_info数据")
-            op_env_info.print(f"{_env_info}")
+            #op_env_info.print(f"{_env_info}")
 
             op_env_info.print(f"下面是原始的当前智能体的obs数据")
-            op_env_info.print_obs_features(obs)
+            #op_env_info.print_obs_features(obs)
 
             op_env_info.print(f"下面是原始的当前智能体的_obs数据")
-            op_env_info.print_obs_features(_obs)
-
-
-
+            #op_env_info.print_obs_features(_obs)
 
             if _obs is None:
                 break
@@ -155,8 +154,8 @@ def run_episodes(n_episode, env, agent, g_data_truncat, usr_conf, logger):
             # 特征处理
             _obs_data = observation_process(_obs, _env_info)
             op_env_info.print(f"下面是经过处理的当前智能体的_obs_data数据")
-            op_env_info.print(f"{type(_obs_data)}")
-            op_env_info.print(f"{_obs_data}")
+            #op_env_info.print(f"{type(_obs_data)}")
+            #op_env_info.print(f"{_obs_data}")
 
             # Disaster recovery
             # 容灾
@@ -179,6 +178,7 @@ def run_episodes(n_episode, env, agent, g_data_truncat, usr_conf, logger):
                     _obs,
                     env_info,
                     _env_info,
+                    act,
                 )
 
                 treasure_dists = [pos.grid_distance for pos in _obs.feature.treasure_pos]
@@ -220,22 +220,19 @@ def run_episodes(n_episode, env, agent, g_data_truncat, usr_conf, logger):
             # If the number of game frames reaches the threshold, the sample is processed and sent to training
             # 如果游戏帧数达到阈值，则进行样本处理，将样本送去训练
             if len(collector) % g_data_truncat == 0:
-                print("11111111")
                 collector = sample_process(collector)
                 yield collector
 
             # If the game is over, the sample is processed and sent to training
             # 如果游戏结束，则进行样本处理，将样本送去训练
             if done:
-                print(22222222)
                 if len(collector) > 0:
                     collector = sample_process(collector)
                     yield collector
                 break
-
             # Status update
             # 状态更新
             obs_data = _obs_data
             obs = _obs
             env_info = _env_info
-            print("33333333")
+

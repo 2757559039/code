@@ -32,6 +32,30 @@ from typing import List
 algorithm_name_list = ["dqn", "target_dqn", "diy"]
 algorithm_name = "dqn"
 import sys
+import json
+
+import os
+
+file_path = 'data.json'  # 替换为你的文件路径
+
+if not os.path.isfile(file_path):
+    # 初始化二维列表，例如 16 行，每行的列数可以不同
+    list_2d = [[ ] for _ in range(16)]  # 示例数据，每行初始化为包含一个(0, 0)元组的列表
+
+    # 初始化一维索引列表，长度为 16，每个元素初始值为 0
+    index_1d = [0] * 16
+
+    # 创建一个字典，包含 'list' 和 'index' 键
+    data_dict = {
+        'list': list_2d,
+        'index': index_1d
+    }
+    json_str = json.dumps(data_dict, indent=4)
+
+    # 写入到 JSON 文件
+    with open('data.json', 'w') as json_file:
+        json_file.write(json_str)
+
 
 # train
 # 训练
@@ -108,7 +132,7 @@ def train():
         # the method of obtaining monitoring values is adopted
         # 采用获取监控值的方法
         success = check_train_success_by_monitor()
-        if success:
+        if 0:
 
             time.sleep(5)
             print(
