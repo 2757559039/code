@@ -17,7 +17,10 @@ torch.set_num_interop_threads(1)
 import os
 import time
 from target_dqn.model.model import Model
-from target_dqn.feature.definition import ActData
+from target_dqn.feature.definition import (
+    ActData,
+    printer,
+)
 import numpy as np
 from copy import deepcopy
 from kaiwu_agent.agent.base_agent import (
@@ -30,6 +33,7 @@ from kaiwu_agent.agent.base_agent import (
 )
 from kaiwu_agent.utils.common_func import attached
 from target_dqn.config import Config
+
 
 
 @attached
@@ -121,6 +125,8 @@ class Agent(BaseAgent):
         model.eval()
         # 探索因子, 初始epsilon为0.5，我们希望epsilon随着预测步数越来越小，直到0.1为止
         self.epsilon = max(0.1, 0.5 - self.predict_count / self.egp)
+        printer.print(f"这里是agent部分{self.epsilon}")
+
 
         with torch.no_grad():
             # epsilon greedy

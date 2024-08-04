@@ -19,73 +19,18 @@ from target_dqn.feature.definition import (
     action_process,
     sample_process,
     reward_shaping,
+    printer,
 )
 from conf.usr_conf import usr_conf_check
-
-def convert_to_str_2d(array_2d):
-    str_array_2d = []
-    for row in array_2d:
-        str_row = []
-        for item in row:
-            if isinstance(item, int):
-                str_row.append(str(item))
-            else:
-                str_row.append(item)
-        str_array_2d.append(str_row)
-    return str_array_2d
-
-def print_128x128_array(array):
-    ###行为数组预处理
-    for i in range(128):
-        for j in range(128):
-            if array[i][j] == 0:
-                array[i][j] = ' '
-
-    # start_value = usr_conf["diy"]["start"]
-    # end_value = usr_conf["diy"]["end"]
-    # array[start_value[1]][start_value[0]]="起点"
-    # if(win_mark):
-    #     array[end_value[1]][end_value[0]]="获胜"
-    # else:
-    #     array[end_value[1]][end_value[0]]="终点"
-
-    # 先创建一个包含所有索引的集合，以提高查找效率
-    # chest_positions_set = {tuple(row) for row in over_time_chest_location}
-
-    # # 然后遍历 chest_location 并根据索引更新 array
-    # for i in chest_location:
-    #     # 检查索引 i 是否存在于 chest_positions_set 中
-    #     if tuple(i) in chest_positions_set:
-    #         array[i[1]][i[0]] = "宝"  # 假设 i 是 [行索引, 列索引]
-    #     else:
-    #         array[i[1]][i[0]] = "开"
-
-    array=[row.copy() for row in reversed(array)]
-    array=convert_to_str_2d(array)
-
-    with open("guiji.txt", 'a') as file:  # 打开文件准备写入
-        # file.write("第"+str(episode)+"次训练,epsilon:"+str(epsilon)+",已经走步数:"+str(cont)+",宝箱总数:"+str(len(chest_location))+",已获得宝箱数量:"+str(len(chest_location)-len(over_time_chest_location))+",总得分:"+str(total_score)+"\n")
-        for i, row in enumerate(array):
-            if i == 0 or i == len(array) - 1:  # 打印（写入）顶部和底部的边框
-                # 写入顶部和底部边框
-                file.write('+' + '-' * (len(array[0]) * 4 - 1) + '+' + '\n')
-            else:
-                row_output = ['|']  # 每行开始添加'|'
-                for j, val in enumerate(row):
-                    if j == len(row) - 1:  # 每行末尾添加'|'
-                        row_output.append('|')
-                    else:
-                        row_output.append(f"{val:4s} ")
-                # 将当前行写入文件，使用join避免逐个字符写入的低效
-                file.write(''.join(row_output) + '|\n')
-    array=[[0 for _ in range(128)] for _ in range(128)]
-
+from target_dqn.config import WeiZhiHuoQu
+from target_dqn.config import CustomPrinter
+from target_dqn.config import guijiGeneration
 @attached
 def workflow(envs, agents, logger=None, monitor=None):
 
     env, agent = envs[0], agents[0]
     epoch_num = 100000
-    episode_num_every_epoch = 1
+    episode_num_every_epoch = 20
     # 帧数阈值,堆栈
     g_data_truncat = 256
     last_save_model_time = 0
@@ -110,6 +55,7 @@ def workflow(envs, agents, logger=None, monitor=None):
         return
 
     for epoch in range(epoch_num):
+        printer.print(f"这是第{epoch}轮")
         # 累计奖励
         epoch_total_rew = 0
         # 数据长度,用于计算平局回报的
@@ -142,7 +88,9 @@ def workflow(envs, agents, logger=None, monitor=None):
 
 # 接收 局数 环境 智能体 帧数阈值 配置 日志记录器
 def run_episodes(n_episode, env, agent, g_data_truncat, usr_conf, logger):
+    guiji=guijiGeneration()
     for episode in range(n_episode):
+        printer.print(f"这是第{episode}个周期")
         array_128x128 = [[0 for _ in range(128)] for _ in range(128)]
         collector = list()
 
@@ -162,14 +110,33 @@ def run_episodes(n_episode, env, agent, g_data_truncat, usr_conf, logger):
         # 将初始数据转化为定义数据的预处理
         # obs包括信息:
         obs_data = observation_process(obs)
-
+        # 首帧obs,用于获取起点
+        first_frame_obs =obs
         done = False
         # 步数
         step = 0
-        # 这个是?
+        # 撞墙次数
         bump_cnt = 0
-
+        ###自定义标记
+        # 获胜标记
+        terminatedCode=0
+        # 获胜次数
+        terminatedNum=0
+        # 使用技能次数
+        usedSkillNum=0
+        # 技能使用前后位置, 用列表存储多次技能信息
+        usedSkillStar=[]
+        usedSkillEnd=[]
+        # buff获得次数
+        buffNum=0
+        # 初始宝箱
+        treasure_info_list=[ (1 if treasure.grid_distance<1 else 0) for i,treasure in enumerate(obs.feature.treasure_pos) if i>1]
+        # 训练结束时宝箱
+        _treasure_info_list=treasure_info_list
+        ans=0
         while not done:
+            printer.print(f"这是第{ans}步")
+            ans+=1
 
             # Agent 进行推理, 
             # act_data为定义的动作数据
@@ -183,19 +150,36 @@ def run_episodes(n_episode, env, agent, g_data_truncat, usr_conf, logger):
             frame_no, _obs, score, terminated, truncated, _env_info = env.step(act)
             if _obs is None:
                 break
-            step += 1
-            print(step)
-            array_128x128[_obs.feature.grid_pos.z][_obs.feature.grid_pos.x]+=1
+          
             # 特征处理
             # ?
             _obs_data = observation_process(_obs, _env_info)
+
+            # with open("test.txt", 'a') as file:
+                # file.write(str(obs)+'\n')  
+                # file.write(str(obs_data)+'\n')             
+                # file.write('+++++++++++++++++++++++++++++++++++++++++++++\n')
+
+            step += 1
+            # print(step)
+            if(act>7):
+                usedSkillNum+=1
+                usedSkillStar.append([obs.feature.grid_pos.x,obs.feature.grid_pos.z])
+                usedSkillEnd.append([_obs.feature.grid_pos.x,_obs.feature.grid_pos.z])
+            # 抽象hhh,获取拿到buff的判定
+
+            # 当前buff不存在,上一帧buff存在,从而表示拿到了buff
+            if _obs.feature.buff_pos.grid_distance==1 and obs.feature.buff_pos.grid_distance!=1:
+                    buffNum+=1
+
+            array_128x128[_obs.feature.grid_pos.z][_obs.feature.grid_pos.x]+=1
 
             # 容灾
             if truncated and frame_no is None:
                 break
 
             treasures_num = 0
-            # Calculate reward
+
             # 计算 reward
             if env_info is None:
                 reward = 0
@@ -213,6 +197,7 @@ def run_episodes(n_episode, env, agent, g_data_truncat, usr_conf, logger):
                 )
                 treasure_dists = [pos.grid_distance for pos in _obs.feature.treasure_pos]
                 treasures_num = treasure_dists.count(1.0)
+
                 # Wall bump behavior statistics
                 # 撞墙行为统计
                 bump_cnt += is_bump
@@ -224,6 +209,8 @@ def run_episodes(n_episode, env, agent, g_data_truncat, usr_conf, logger):
                         collected treasures: {treasures_num  - 7}"
                 )
             elif terminated:
+                terminatedCode=1
+                terminatedNum+=1
                 logger.info(
                     f"terminated is True, so this episode {episode} reach the end, \
                         collected treasures: {treasures_num  - 7}"
@@ -263,5 +250,34 @@ def run_episodes(n_episode, env, agent, g_data_truncat, usr_conf, logger):
             obs_data = _obs_data
             obs = _obs
             env_info = _env_info
-        print_128x128_array(array_128x128)
+
+        _treasure_info_list=[ (1 if treasure.grid_distance<1 else 0) for i,treasure in enumerate(obs.feature.treasure_pos) if i>1]
+        have_treasure_list=[treasure ^ _treasure for treasure,_treasure in zip(treasure_info_list, _treasure_info_list)]
+        first_frame_pos =first_frame_obs.feature.grid_pos
+        x=first_frame_pos.x
+        z=first_frame_pos.z
+        array_128x128[z][x]="起点"
+        with open("guiji.txt", 'a') as file:
+            file.write('第' + str(episode+1)+'轮\n')
+            file.write('本轮数据:\n')
+            file.write('结果:'+'胜利' if terminatedCode else '失败'+'\n')
+            file.write("胜率:"+str((terminatedNum/(episode+1))*100)+'%\n')
+            file.write('步数:'+str(step)+'\n')
+            file.write('撞墙次数:'+str(bump_cnt)+',撞墙率:'+str(bump_cnt/step))
+            file.write('闪现次数:'+str(usedSkillNum)+'\n')
+            file.write('闪现位置:\n')
+            file.write('闪现起点:'+str(usedSkillStar)+'\n')
+            file.write('闪现终点:'+str(usedSkillEnd)+'\n')
+            file.write('获取buff次数:'+str(buffNum)+'\n')
+            file.write('宝箱信息:'+str(treasure_info_list)+'\n')
+            file.write('已得宝箱:'+str(have_treasure_list)+'\n')
+            file.write('未得信息:'+str([treasure - h_treasure for treasure,h_treasure in zip(treasure_info_list, have_treasure_list)])+'\n')
+            if(terminatedCode):
+                file.write('最终得分:'+str((2000-step+2)*0.2+150+sum(have_treasure_list)*100)+',分\n')
+            else:
+                file.write('最终得分:'+str(0)+'分\n')
             
+        
+        guiji.print_128x128_array(array_128x128)
+
+
