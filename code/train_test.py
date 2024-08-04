@@ -20,22 +20,25 @@ from kaiwudrl.common.utils.common_func import (
     find_pids_by_cmdline,
     scan_for_errors,
 )
-from dqn.feature.definition import CustomPrinter
 import kaiwudrl.server.learner.learner as learner
 import kaiwudrl.server.aisrv.aisrv as aisrv
 from kaiwudrl.common.config.config_control import CONFIG
 from typing import List
+###
+from target_dqn.config import WeiZhiHuoQu
+from target_dqn.config import CustomPrinter
+import json
 
 # To run the train_test, you must modify the algorithm name here. It must be one of dqn, target_dqn, diy.
 # Simply modify the value of the algorithm_name variable.
 # 运行train_test前必须修改这里的算法名字, 必须是dqn、target_dqn、diy里的一个, 修改algorithm_name的值即可
 algorithm_name_list = ["dqn", "target_dqn", "diy"]
-algorithm_name = "dqn"
-import sys
-import json
+algorithm_name = "target_dqn"
 
+
+###
 import os
-
+import json
 file_path = 'data.json'  # 替换为你的文件路径
 
 if not os.path.isfile(file_path):
@@ -56,15 +59,13 @@ if not os.path.isfile(file_path):
     with open('data.json', 'w') as json_file:
         json_file.write(json_str)
 
-
 # train
 # 训练
 def train():
     start_time = time.time()
-
     CustomPrinter.clear_text_file('output_definition.txt')
     CustomPrinter.clear_text_file('output_env_info.txt')
-
+    CustomPrinter.clear_text_file('guiji.txt')
     # To modify the value in the environment variable and initiate training for the learner as soon as possible
     # 修改环境变量里的值, 尽快让learner进行训练
     os.environ.update(
@@ -132,7 +133,7 @@ def train():
         # the method of obtaining monitoring values is adopted
         # 采用获取监控值的方法
         success = check_train_success_by_monitor()
-        if 0:
+        if success:
 
             time.sleep(5)
             print(
@@ -213,23 +214,32 @@ def check_train_success_by_monitor():
 
 # Processing monitor metrics
 # 处理监控指标
-def process_monitor_metrics(metrics: List, pids: List[str]):
-    for metric in metrics:
-        labels = metric.get("labels", {})
-        value = metric.get("value", 0)
+# def process_monitor_metrics(metrics: List, pids: List[str]):
+#     for metric in metrics:
+#         labels = metric.get("labels", {})
+#         value = metric.get("value", 0)
 
-        job = labels.get("job", None)
-        if job:
-            for pid in pids:
-                if pid in job and int(value) > 0:
-                    return True
+#         job = labels.get("job", None)
+#         if job:
+#             for pid in pids:
+#                 if pid in job and int(value) > 0:
+#                     return True
 
-    return False
+#     return False
 
 
 if __name__ == "__main__":
+    
     try:
         train()
     except KeyboardInterrupt:
         print("\033[1;31m" + "KeyboardInterrupt, please check" + "\033[0m")
         python_exec_shell(f"sh tools/stop.sh all")
+
+
+
+
+
+
+
+
